@@ -209,7 +209,11 @@ def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAI�
         conn.send(idea_parent_node_combination)
 
         # 候補となるアイデアのハッシュを更新
-        tree_manager.update_candidate_ideas(idea_parent_node_combination)
+        threading.Thread(
+            target=tree_manager.update_candidate_ideas,
+            args=(idea_parent_node_combination),
+        ).start()
+        # tree_manager.update_candidate_ideas(idea_parent_node_combination)
 
 
 def initialize():
