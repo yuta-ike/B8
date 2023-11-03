@@ -17,14 +17,18 @@
   "dependencies": {
     "@types/dom-speech-recognition": "^0.0.3",
     "clsx": "^2.0.0",
+    "dagre": "^0.8.5",
     "date-fns": "^2.30.0",
+    "nanoid": "^5.0.2",
     "next": "14.0.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-draggable": "^4.4.6",
     "react-icons": "^4.11.0",
     "socket.io-client": "^4.7.2"
   },
   "devDependencies": {
+    "@types/dagre": "^0.7.51",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
