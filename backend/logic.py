@@ -47,9 +47,17 @@ class Secretary:
 
 
 class TreeManager:
-    def __init__(self, EMBEDDING_MODEL: str = "text-embedding-ada-002", theme: str = "楽") -> None:
+    def __init__(
+        self,
+        EMBEDDING_MODEL: str = "text-embedding-ada-002",
+        theme: str = "楽",
+        max_cosine_similarity_threshold: float = 0.95,
+        min_cosine_similarity_threshold: float = 0.5,
+    ) -> None:
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
         self.theme = theme
+        self.max_cosine_similarity_threshold = max_cosine_similarity_threshold
+        self.min_cosine_similarity_threshold = min_cosine_similarity_threshold
         self.root_node = Node(theme, embedding=self.sentence_to_embedding(theme))
         self.idea_candidates_dict = defaultdict(list)
     
@@ -113,6 +121,10 @@ class TreeManager:
                 if cosine_similarity > max_cosine_similarity:
                     max_cosine_similarity = cosine_similarity
                     parent_node = node
+
+            # 類似度が高すぎる＝ほとんど似たアイデアの場合や、低すぎる＝関連が小さいアイデアの場合は無視する
+            if (max_cosine_similarity > self.max_cosine_similarity_threshold) or (max_cosine_similarity < self.min_cosine_similarity_threshold):
+                continue
 
             # 類似度が最大のノードの子ノードとして追加
             Node(idea, embedding=embedding, parent=parent_node)
