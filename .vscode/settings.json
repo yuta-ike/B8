@@ -6,5 +6,12 @@
   "typescript.tsdk": "./frontend/node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "prettier.configPath": "./frontend/.prettierrc.js",
-  "eslint.workingDirectories": [{ "pattern": "frontend/" }]
+  "eslint.workingDirectories": [
+    {
+      "pattern": "frontend/"
+    }
+  ],
+  "cSpell.words": [
+    "anytree"
+  ]
 }

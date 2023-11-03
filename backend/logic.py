@@ -1,18 +1,28 @@
 import logging
+import os
 import time
+from collections import defaultdict
 from multiprocessing import Process, Pipe
 
-import torch
-import torch.nn.functional as F
+import openai
+import numpy as np
 from anytree import Node
 from anytree.search import find, findall
-from transformers import BertJapaneseTokenizer, BertModel
-
-from model import GPTExtractor
 
 
 logger = logging.getLogger(__name__)
+MODEL_NAME = "gpt-3.5-turbo"
+TEMPERATURE = 0.0
+openai.api_key = os.environ.get("OPENAI_KEY")
 
+with open("prompt/extract_idea_system_prompt.txt") as f:
+    extract_idea_system_prompt = f.read()
+with open("prompt/extract_idea_prompt.txt") as f:
+    extract_idea_prompt = f.read()
+with open("prompt/extend_idea_system_prompt.txt") as f:
+    extend_idea_system_prompt = f.read()
+with open("prompt/extend_idea_prompt.txt") as f:
+    extend_idea_prompt = f.read()
 
 class Secretary:
     def __init__(self) -> None:
@@ -36,32 +46,52 @@ class Secretary:
         return talk
 
 
-class SentenceSimilaritySearch:
-    def __init__(self, MODEL_NAME: str = 'cl-tohoku/bert-base-japanese-whole-word-masking') -> None:
-        self.tokenizer = BertJapaneseTokenizer.from_pretrained(MODEL_NAME)
-        self.model = BertModel.from_pretrained(MODEL_NAME)
-    
-    def sentence_to_vector(self, sentence: str) -> torch.Tensor:
-        # 文を単語に区切って数字にラベル化
-        tokens = self.tokenizer(sentence)["input_ids"]
-        
-        # BERTモデルの処理のためtensor型に変換
-        input = torch.tensor(tokens).reshape(1, -1)
-        
-        # BERTモデルに入力し文のベクトルを取得
-        with torch.no_grad():
-            outputs = self.model(input, output_hidden_states=True)
-            last_hidden_state = outputs.last_hidden_state[0]
-            averaged_hidden_state = last_hidden_state.sum(dim=0) / len(last_hidden_state) 
-        
-        return averaged_hidden_state
-
-
 class TreeManager:
-    def __init__(self, root_node_keyword: str = "楽") -> None:
-        self.search_engine = SentenceSimilaritySearch()
-        self.root_node = Node(root_node_keyword, embedding=self.search_engine.sentence_to_vector(root_node_keyword))
-        self.idea_candidates_dict = {}
+    def __init__(self, EMBEDDING_MODEL: str = "text-embedding-ada-002", theme: str = "楽") -> None:
+        self.EMBEDDING_MODEL = EMBEDDING_MODEL
+        self.theme = theme
+        self.root_node = Node(theme, embedding=self.sentence_to_embedding(theme))
+        self.idea_candidates_dict = defaultdict(list)
+    
+    def extract_ideas(self, sentence: str) -> list[str]:
+        idea_list = []
+        response = openai.ChatCompletion.create(
+            model=MODEL_NAME,
+            messages=[
+                {'role': 'system', 'content': extract_idea_system_prompt.format(self.theme)},
+                {
+                    'role': 'user',
+                    'content': extract_idea_prompt.format(
+                        self.theme,
+                        self.theme,
+                        sentence
+                    )
+                }
+            ],
+            temperature=TEMPERATURE,
+        )
+        res = response['choices'][0]['message']['content']
+        logger.info(res)
+
+        if "アイデアなし" in res:
+            return []
+
+        for idea in res.split("\n"):
+            if ("根拠" in idea) or (len(idea) == 0):
+                continue
+            idea_list.append(
+                idea.replace("「", "").replace("」", "").split("アイデア：")[1]
+            )
+        return idea_list
+    
+    def sentence_to_embedding(self, idea: str) -> list[float]:
+        res = openai.Embedding.create(input=[idea], model=self.EMBEDDING_MODEL)
+        embedding = res["data"][0]["embedding"]
+        return embedding
+    
+    def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        # openai.embeddings_utils.cosine_similarity()
+        return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
     def add_ideas(self, idea_list: list[str]) -> list[tuple[str, str]]:
         """
@@ -74,12 +104,12 @@ class TreeManager:
         idea_parent_node_combination = []
         for idea in idea_list:
             assert len(idea) > 0
-            embedding = self.search_engine.sentence_to_vector(idea)
+            embedding = self.sentence_to_embedding(idea)
             max_cosine_similarity = -1.0
 
             # 類似度が最大のノードを探す
             for node in findall(self.root_node):
-                cosine_similarity = F.cosine_similarity(node.embedding, embedding, dim=0).detach().numpy()
+                cosine_similarity = self.cosine_similarity(node.embedding, embedding)
                 if cosine_similarity > max_cosine_similarity:
                     max_cosine_similarity = cosine_similarity
                     parent_node = node
@@ -88,8 +118,8 @@ class TreeManager:
             Node(idea, embedding=embedding, parent=parent_node)
             idea_parent_node_combination.append((idea, parent_node.name))
         return idea_parent_node_combination
-
-    def get_candidate_ideas(self, idea_parent_node_combination):
+    
+    def update_candidate_ideas(self, idea_parent_node_combination: list[tuple[str, str]]):
         for idea, _ in idea_parent_node_combination:
             node = find(self.root_node, filter_=lambda node: node.name == idea)
             related_ideas = []            
@@ -97,16 +127,26 @@ class TreeManager:
                 related_ideas.append(node.parent.name)
                 node = node.parent
 
-            
-            self.idea_candidates_dict[idea] = related_ideas
+            # 候補となるアイデアを生成
+            response = openai.ChatCompletion.create(
+                model=MODEL_NAME,
+                messages=[
+                    {'role': 'system', 'content': extend_idea_system_prompt.format(self.theme)},
+                    {'role': 'user', 'content': extend_idea_prompt.format(idea, "\n".join(related_ideas))}
+                ],
+                temperature=TEMPERATURE,
+            )
+            res = response['choices'][0]['message']['content']
+            logger.info(f"idea: {idea}")
+            logger.info(f"res: {res}")
 
-
-
+            # 候補となるアイデアを格納 
+            for extended_idea in res.split("\n"):
+                self.idea_candidates_dict[idea].append(extended_idea.replace("-", "").replace(" ", ""))
 
 
 def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAIを活用したプロダクトを作るハッカソン"):
     secretary = Secretary()
-    llm = GPTExtractor(theme)
     tree_manager = TreeManager(theme)
     while True:
         time.sleep(interval)
@@ -124,7 +164,7 @@ def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAI�
         logger.info(sentence)
 
         # アイデアリストを抽出
-        idea_list = llm.extract_ideas(sentence)
+        idea_list = tree_manager.extract_ideas(sentence)
         if len(idea_list) == 0:
             continue
         logger.info(idea_list)
@@ -133,8 +173,12 @@ def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAI�
         idea_parent_node_combination = tree_manager.add_ideas(idea_list)
         conn.send(idea_parent_node_combination)
 
+        # 候補となるアイデアのハッシュを更新
+        tree_manager.update_candidate_ideas(idea_parent_node_combination)
+
 
 def initialize():
+    # freeze_support()
     parent_conn, child_conn = Pipe()
     p = Process(target=mainloop, args=(child_conn,))
     p.start()
