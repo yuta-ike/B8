@@ -1,0 +1,9 @@
+version: '3'
+services:
+  test-app:
+    build: .
+    volumes:
+      - .:/app
+    tty: true
+    ports:
+      - 5000:5000
