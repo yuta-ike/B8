@@ -103,74 +103,68 @@ const calcDirPos = (pos: Pos, dir: "top" | "bottom" | "left" | "right" | "center
 
 const initNodes = [
   {
-    id: "1",
-    label: "冬でも売れるアイスクリーム",
-    color: "orange",
+    id: "rootid",
+    label: "楽",
   },
-  {
-    id: "2",
-    label: "熱い飲み物をかけてたべる",
-    color: "orange",
-  },
-  {
-    id: "3",
-    label: "苦い飲み物",
-    color: "orange",
-  },
-  {
-    id: "4",
-    label: "コーヒー",
-    color: "orange",
-  },
-  {
-    id: "5",
-    label: "青汁",
-    color: "orange",
-  },
-  {
-    id: "6",
-    label: "日本茶",
-    color: "orange",
-  },
-  {
-    id: "7",
-    label: "温かい場所で提供する",
-    color: "orange",
-  },
-  {
-    id: "8",
-    label: "サウナ",
-    color: "orange",
-  },
-  {
-    id: "9",
-    label: "温泉や銭湯の風呂上がり",
-    color: "orange",
-  },
-  {
-    id: "10",
-    label: "冷たくないアイス",
-    color: "orange",
-  },
-  {
-    id: "11",
-    label: "燃える氷的な？",
-    color: "orange",
-  },
+  // {
+  //   id: "1",
+  //   label: "冬でも売れるアイスクリーム",
+  // },
+  // {
+  //   id: "2",
+  //   label: "熱い飲み物をかけてたべる",
+  // },
+  // {
+  //   id: "3",
+  //   label: "苦い飲み物",
+  // },
+  // {
+  //   id: "4",
+  //   label: "コーヒー",
+  // },
+  // {
+  //   id: "5",
+  //   label: "青汁",
+  // },
+  // {
+  //   id: "6",
+  //   label: "日本茶",
+  // },
+  // {
+  //   id: "7",
+  //   label: "温かい場所で提供する",
+  // },
+  // {
+  //   id: "8",
+  //   label: "サウナ",
+  // },
+  // {
+  //   id: "9",
+  //   label: "温泉や銭湯の風呂上がり",
+  // },
+  // {
+  //   id: "10",
+  //   label: "冷たくないアイス",
+  // },
+  // {
+  //   id: "11",
+  //   label: "燃える氷的な？",
+  // },
 ]
 type Pos = { x: number; y: number }
 const initNodePos: Record<string, Pos> = {
-  "1": { x: 0, y: 0 },
-  "2": { x: 0, y: 0 },
-  "3": { x: 0, y: 0 },
-  "4": { x: 0, y: 0 },
-  "5": { x: 0, y: 0 },
-  "6": { x: 0, y: 0 },
-  "7": { x: 0, y: 0 },
-  "8": { x: 0, y: 0 },
-  "9": { x: 0, y: 0 },
-  "10": { x: 0, y: 0 },
-  "11": { x: 0, y: 0 },
+  rootid: { x: 0, y: 0 },
+  // "1": { x: 0, y: 0 },
+  // "2": { x: 0, y: 0 },
+  // "3": { x: 0, y: 0 },
+  // "4": { x: 0, y: 0 },
+  // "5": { x: 0, y: 0 },
+  // "6": { x: 0, y: 0 },
+  // "7": { x: 0, y: 0 },
+  // "8": { x: 0, y: 0 },
+  // "9": { x: 0, y: 0 },
+  // "10": { x: 0, y: 0 },
+  // "11": { x: 0, y: 0 },
 }
 
 type Edge = {
@@ -185,88 +179,88 @@ type Edge = {
 }
 
 const initEdges: Edge[] = [
-  {
-    from: {
-      id: "1",
-      handle: "right",
-    },
-    to: {
-      id: "2",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "2",
-      handle: "right",
-    },
-    to: {
-      id: "3",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "4",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "5",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "6",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "1",
-      handle: "left",
-    },
-    to: {
-      id: "7",
-      handle: "right",
-    },
-  },
-  {
-    from: {
-      id: "7",
-      handle: "bottom",
-    },
-    to: {
-      id: "8",
-      handle: "top",
-    },
-  },
-  {
-    from: { id: "7", handle: "bottom" },
-    to: { id: "9", handle: "top" },
-  },
-  {
-    from: { id: "1", handle: "left" },
-    to: { id: "10", handle: "right" },
-  },
-  {
-    from: { id: "10", handle: "bottom" },
-    to: { id: "11", handle: "top" },
-  },
+  // {
+  //   from: {
+  //     id: "1",
+  //     handle: "right",
+  //   },
+  //   to: {
+  //     id: "2",
+  //     handle: "left",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "2",
+  //     handle: "right",
+  //   },
+  //   to: {
+  //     id: "3",
+  //     handle: "left",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "3",
+  //     handle: "right",
+  //   },
+  //   to: {
+  //     id: "4",
+  //     handle: "left",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "3",
+  //     handle: "right",
+  //   },
+  //   to: {
+  //     id: "5",
+  //     handle: "left",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "3",
+  //     handle: "right",
+  //   },
+  //   to: {
+  //     id: "6",
+  //     handle: "left",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "1",
+  //     handle: "left",
+  //   },
+  //   to: {
+  //     id: "7",
+  //     handle: "right",
+  //   },
+  // },
+  // {
+  //   from: {
+  //     id: "7",
+  //     handle: "bottom",
+  //   },
+  //   to: {
+  //     id: "8",
+  //     handle: "top",
+  //   },
+  // },
+  // {
+  //   from: { id: "7", handle: "bottom" },
+  //   to: { id: "9", handle: "top" },
+  // },
+  // {
+  //   from: { id: "1", handle: "left" },
+  //   to: { id: "10", handle: "right" },
+  // },
+  // {
+  //   from: { id: "10", handle: "bottom" },
+  //   to: { id: "11", handle: "top" },
+  // },
 ]
 
 type CanvasPageProps = {
