@@ -10,7 +10,7 @@ from anytree import Node
 from anytree.search import find, findall
 import threading
 import uuid
-
+import env
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -24,7 +24,7 @@ logger.addHandler(stream_handler)
 
 MODEL_NAME = "gpt-3.5-turbo"
 TEMPERATURE = 0.0
-openai.api_key = os.environ.get("OPENAI_KEY")
+openai.api_key = env.OPENAI_API_KEY
 
 with open("prompt/extract_idea_system_prompt.txt") as f:
     extract_idea_system_prompt = f.read()
@@ -154,7 +154,9 @@ class TreeManager:
                     parent_node = node
 
             # 類似度が高すぎる＝ほとんど似たアイデアの場合や、低すぎる＝関連が小さいアイデアの場合は無視する
-            if (max_cosine_similarity > self.max_cosine_similarity_threshold) or (max_cosine_similarity < self.min_cosine_similarity_threshold):
+            if (max_cosine_similarity > self.max_cosine_similarity_threshold) or (
+                max_cosine_similarity < self.min_cosine_similarity_threshold
+            ):
                 continue
 
             id = str(uuid.uuid4())
