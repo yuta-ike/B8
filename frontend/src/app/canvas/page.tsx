@@ -1,8 +1,10 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import Draggable from "react-draggable"
 import { graphlib, layout } from "dagre"
+import { customAlphabet } from "nanoid"
+const genId = customAlphabet("abcdefghijklmnopqrstuvwxyz1234567890", 10)
 
 const SIZE = {
   WIDTH: 160,
@@ -20,8 +22,8 @@ const buildPath = (first: [number, number], ...args: [number, number][]) => {
 const getPath = (start: Pos, end: Pos, startDir: Dir, endDir: Dir) => {
   return buildPath(
     [start.x, start.y],
-    [start.x, (start.y + end.y) / 2],
-    [end.x, (start.y + end.y) / 2],
+    // [start.x, (start.y + end.y) / 2],
+    // [end.x, (start.y + end.y) / 2],
     [end.x, end.y],
   )
   if (startDir === "bottom" && endDir === "top") {
@@ -58,8 +60,10 @@ const getPath = (start: Pos, end: Pos, startDir: Dir, endDir: Dir) => {
   }
 }
 
-const calcDirPos = (pos: Pos, dir: "top" | "bottom" | "left" | "right") => {
+const calcDirPos = (pos: Pos, dir: "top" | "bottom" | "left" | "right" | "center") => {
   switch (dir) {
+    case "center":
+      return { x: pos.x + SIZE.WIDTH / 2, y: pos.y + SIZE.HEIGHT / 2 }
     case "top":
       return { x: pos.x + SIZE.WIDTH / 2, y: pos.y - HANDLE_DISTANCE }
     case "bottom":
@@ -132,7 +136,18 @@ const initNodePos: Record<string, Pos> = {
   "11": { x: 0, y: 0 },
 }
 
-const initEdges = [
+type Edge = {
+  from: {
+    id: string
+    handle: "right" | "left" | "top" | "bottom"
+  }
+  to: {
+    id: string
+    handle: "right" | "left" | "top" | "bottom"
+  }
+}
+
+const initEdges: Edge[] = [
   {
     from: {
       id: "1",
@@ -215,7 +230,7 @@ const initEdges = [
     from: { id: "10", handle: "bottom" },
     to: { id: "11", handle: "top" },
   },
-] as const
+]
 
 export default function CanvasPage() {
   const [nodes, setNodes] = useState(initNodes)
@@ -263,6 +278,31 @@ export default function CanvasPage() {
     console.log(g.edges())
   }, [nodes, edges])
 
+  const addChild = useCallback(
+    (nodeId: string) => {
+      const newId = genId()
+      console.log(newId)
+      setNodes((prev) => [...prev, { id: newId, label: "新しいノード" }])
+      setEdges((prev) => [
+        ...prev,
+        {
+          from: {
+            id: nodeId,
+            handle: "bottom",
+          },
+          to: {
+            id: newId,
+            handle: "top",
+          },
+        },
+      ])
+      setNodePos((prev) => {
+        return { ...prev, [newId]: nodePos[nodeId]! }
+      })
+    },
+    [nodePos],
+  )
+
   return (
     <div
       className="relative h-screen w-screen"
@@ -272,12 +312,41 @@ export default function CanvasPage() {
         backgroundSize: "16px 16px",
       }}
     >
+      {edges.map(({ from, to }) => {
+        const fromPos = calcDirPos(nodePos[from.id]!, "center")
+        const toPos = calcDirPos(nodePos[to.id]!, "center")
+
+        return (
+          <svg
+            key={`${from.id}-${to.id}`}
+            xmlns="http://www.w3.org/2000/svg"
+            className="pointer-events-none absolute overflow-visible"
+          >
+            {/* クリック領域を確保 */}
+            <path
+              d={getPath(fromPos, toPos, from.handle, to.handle)}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={20}
+              className="pointer-events-auto cursor-pointer transition-all"
+            />
+            {/* 前景色 */}
+            <path
+              d={getPath(fromPos, toPos, from.handle, to.handle)}
+              fill="none"
+              className="pointer-events-none transition-all"
+              strokeWidth="2px"
+              stroke="#aaaaaa"
+            />
+          </svg>
+        )
+      })}
       {nodes.map(({ id, label }) => (
         <Draggable
           key={id}
           defaultClassNameDragged=""
           defaultClassNameDragging="group/drag"
-          defaultClassName="absolute"
+          defaultClassName="absolute transition"
           onStart={() => handleStart(id)}
           position={nodePos[id]}
           onDrag={(_, { x, y }) => {
@@ -295,9 +364,15 @@ export default function CanvasPage() {
             {...{
               ...(focusedPostit === id ? { "data-focus": true } : undefined),
             }}
+            onClick={() => {
+              addChild(id)
+              addChild(id)
+              addChild(id)
+            }}
           >
-            <div className="h-[160px] w-[160px] transform bg-orange-400 p-4 font-bold text-black shadow transition hover:cursor-pointer group-hover/drag:scale-105 group-hover/drag:shadow-2xl">
+            <div className="grid h-[160px] w-[160px] transform place-items-center rounded-full bg-orange-400 p-4 font-bold text-black shadow transition hover:cursor-pointer group-hover/drag:scale-105 group-hover/drag:shadow-2xl">
               {label}
+              <button>add</button>
             </div>
             {/* Connectors */}
             <>
@@ -306,35 +381,6 @@ export default function CanvasPage() {
           </div>
         </Draggable>
       ))}
-      {edges.map(({ from, to }) => {
-        const fromPos = calcDirPos(nodePos[from.id]!, "bottom")
-        const toPos = calcDirPos(nodePos[to.id]!, "top")
-
-        return (
-          <svg
-            key={`${from.id}-${to.id}`}
-            xmlns="http://www.w3.org/2000/svg"
-            className="pointer-events-none absolute overflow-visible"
-          >
-            {/* クリック領域を確保 */}
-            <path
-              d={getPath(fromPos, toPos, from.handle, to.handle)}
-              fill="none"
-              stroke="transparent"
-              strokeWidth={20}
-              className="pointer-events-auto cursor-pointer"
-            />
-            {/* 前景色 */}
-            <path
-              d={getPath(fromPos, toPos, from.handle, to.handle)}
-              fill="none"
-              className="pointer-events-none"
-              strokeWidth="4px"
-              stroke="gray"
-            />
-          </svg>
-        )
-      })}
     </div>
   )
 }
