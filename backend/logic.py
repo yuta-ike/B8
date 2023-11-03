@@ -98,7 +98,9 @@ class TreeManager:
         # openai.embeddings_utils.cosine_similarity()
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
 
-    def add_ideas(self, idea_list: list[str]) -> list[tuple[str, str]]:
+    def add_ideas(
+        self, idea_list: list[str], threshold: float = 0.9
+    ) -> list[tuple[str, str]]:
         """
         会話から抽出されたアイデアを、類似度が最も大きいノードと連結する
         Args:
@@ -120,6 +122,9 @@ class TreeManager:
                     parent_node = node
 
             # 類似度が最大のノードの子ノードとして追加
+
+            if max_cosine_similarity > threshold:
+                continue
             Node(idea, embedding=embedding, parent=parent_node)
             idea_parent_node_combination.append((idea, parent_node.name))
         return idea_parent_node_combination
