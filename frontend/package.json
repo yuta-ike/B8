@@ -25,13 +25,17 @@
     "react-dom": "^18",
     "react-draggable": "^4.4.6",
     "react-icons": "^4.11.0",
-    "socket.io-client": "^4.7.2"
+    "react-textarea-autosize": "^8.5.3",
+    "socket.io-client": "^4.7.2",
+    "springy": "^2.8.0",
+    "throttle-debounce": "^5.0.0"
   },
   "devDependencies": {
     "@types/dagre": "^0.7.51",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@types/throttle-debounce": "^5.0.1",
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "autoprefixer": "^10.4.16",
     "eslint": "^8.52.0",
