@@ -17,6 +17,7 @@ import { flushSync } from "react-dom"
 import clientService from "@/lib/ClientService"
 import { useSendMessage, useSubscribeChat } from "@/lib/chat"
 import { useAddNewNode, useSubscribeTreeDiff, useUpdateNodeText } from "@/lib/tree"
+import { useSpeechRecognition } from "@/lib/speech"
 
 const SIZE = {
   WIDTH: 160,
@@ -470,6 +471,18 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
     }, []),
   )
 
+  const { startRecognition, stopRecognition, tmpResult, recording } = useSpeechRecognition(
+    useCallback(
+      (text) => {
+        if (text.length === 0) {
+          return
+        }
+        sendMessage(text)
+      },
+      [sendMessage],
+    ),
+  )
+
   return (
     <div
       className="relative"
@@ -485,9 +498,8 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
         {theme}
       </div>
       {/* COMMENTS */}
-      <div className="absolute right-4 top-4 z-10 flex flex-col items-end gap-2">
+      <div className="absolute right-4 top-4 z-10 flex max-h-screen flex-col items-end gap-2 overflow-y-hidden">
         <div className="flex w-[400px] items-center gap-4 rounded-full border-2 border-white bg-white/60 px-4 py-3 text-sm font-bold text-slate-600 shadow backdrop-blur">
-          {/* <div className="grow">ハローワールド</div> */}
           <input type="text" value={dummyInput} onChange={(e) => setDummyInput(e.target.value)} />
           <button
             onClick={() => {
@@ -496,9 +508,13 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
           >
             送信
           </button>
-          <div className="border-l border-slate-300 pl-4">
+          <div className="grow">{tmpResult}</div>
+          <button
+            onClick={recording ? stopRecognition : startRecognition}
+            className={clsx("border-l border-slate-300 pl-4", recording ? "text-rose-600" : "")}
+          >
             <HiMicrophone />
-          </div>
+          </button>
         </div>
         <hr className="my-2 w-full" />
         {comments.map((comment, i) => (
