@@ -4,7 +4,7 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from dataclasses import dataclass
 from enum import Enum, auto
-
+import time
 import logic
 
 import logging
@@ -15,7 +15,7 @@ logger.setLevel(logging.DEBUG)
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.DEBUG)
 handler_format = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    "%(asctime)s - %(name)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s"
 )
 stream_handler.setFormatter(handler_format)
 logger.addHandler(stream_handler)
@@ -57,26 +57,35 @@ conn = logic.initialize()
 
 def agentloop(conn):
     while True:
-        try:
-            add_list = conn.recv()
-            pass
-        except Exception:
-            continue
-        for node in add_list:
-            parent_node_id, new_node_id, text = node
-            socketio.emit(
-                "update_tree",
-                {
-                    "type": "add",
-                    "parent_node_id": parent_node_id,
-                    "new_node_id": new_node_id,
-                },
-            )
+        args, body = conn.recv()
+        if args == "bulk_add":
+            logger.info(f"add_list: {body}")
+            for node in body:
+                parent_node_id, new_node_id, text = node
+                socketio.emit(
+                    "update_tree",
+                    {
+                        "type": "add",
+                        "parent_node_id": parent_node_id,
+                        "new_node_id": new_node_id,
+                    },
+                )
+                time.sleep(1)
+                socketio.emit(
+                    "update_tree",
+                    {
+                        "type": "update",
+                        "node_id": new_node_id,
+                        "text": text,
+                    },
+                )
+        elif args == "update":
+            node_id, text = body
             socketio.emit(
                 "update_tree",
                 {
                     "type": "update",
-                    "node_id": new_node_id,
+                    "node_id": node_id,
                     "text": text,
                 },
             )
@@ -128,8 +137,7 @@ def add_sentece(json):
         logger.error(f"KeyError: {json}")
         return
     socketio.emit("say", {"id": chat_id, "text": text, "user": user})
-    # socketio.emit("update_tree", {"text": text, "user": user})
-    # conn.send((text, user))
+    conn.send(("say", text, user))
 
 
 @socketio.on("tree_diff")
@@ -155,10 +163,11 @@ def send_tree_diff(json):
         text = json.get("text", None)
         if node_id is None or text is None:
             return jsonify({"error": "node_id or text is not set"})
-        conn.send(("update", node_id, text))
-        socketio.emit(
-            "update_tree", {"type": "update", "node_id": node_id, "text": text}
-        )
+        if text != "":
+            conn.send(("update", node_id, text))
+            socketio.emit(
+                "update_tree", {"type": "update", "node_id": node_id, "text": text}
+            )
     else:
         return jsonify({"error": "Unknown diff type."})
 
