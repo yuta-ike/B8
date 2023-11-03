@@ -66,7 +66,7 @@ class TreeManager:
         EMBEDDING_MODEL: str = "text-embedding-ada-002",
         theme: str = "楽",
         max_cosine_similarity_threshold: float = 0.95,
-        min_cosine_similarity_threshold: float = 0.5,
+        min_cosine_similarity_threshold: float = 0.3,
     ) -> None:
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
         self.theme = theme
@@ -157,10 +157,6 @@ class TreeManager:
             if (max_cosine_similarity > self.max_cosine_similarity_threshold) or (max_cosine_similarity < self.min_cosine_similarity_threshold):
                 continue
 
-            # 類似度が最大のノードの子ノードとして追加
-
-            if max_cosine_similarity > threshold:
-                continue
             id = str(uuid.uuid4())
             Node(idea, embedding=embedding, parent=parent_node, id=id)
             idea_parent_node_combination.append((parent_node.id, id, idea))
