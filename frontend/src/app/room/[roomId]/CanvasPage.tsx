@@ -13,255 +13,23 @@ import { graphlib, layout } from "dagre"
 import clsx from "clsx"
 import { throttle } from "throttle-debounce"
 import { flushSync } from "react-dom"
-
 import clientService from "@/lib/ClientService"
 import { useSendMessage, useSubscribeChat } from "@/lib/chat"
-import { useAddNewNode, useSubscribeTreeDiff, useUpdateNodeText } from "@/lib/tree"
-
-const SIZE = {
-  WIDTH: 160,
-  HEIGHT: 160,
-}
-
-const ARROW_STEP = 50
-
-const HANDLE_DISTANCE = 0
-
-type Dir = "top" | "bottom" | "left" | "right"
-
-const addPos = (pos1: Pos, pos2: Pos) => {
-  return { x: pos1.x + pos2.x, y: pos1.y + pos2.y }
-}
-const subPos = (pos1: Pos, pos2: Pos) => {
-  return { x: pos1.x - pos2.x, y: pos1.y - pos2.y }
-}
-
-const invertPos = (pos: Pos) => {
-  return { x: -pos.x, y: -pos.y }
-}
-
-const buildPath = (first: [number, number], ...args: [number, number][]) => {
-  return `M ${first[0]} ${first[1]} L ${args.map(([x, y]) => `${x} ${y}`).join(" ")}`
-}
-
-const getPath = (start: Pos, end: Pos, startDir: Dir, endDir: Dir) => {
-  return buildPath(
-    [start.x, start.y],
-    // [start.x, (start.y + end.y) / 2],
-    // [end.x, (start.y + end.y) / 2],
-    [end.x, end.y],
-  )
-  if (startDir === "bottom" && endDir === "top") {
-    return buildPath(
-      [start.x, start.y],
-      [start.x, (start.y + end.y) / 2],
-      [end.x, (start.y + end.y) / 2],
-      [end.x, end.y],
-    )
-  }
-  if (startDir === "top" && endDir === "bottom") {
-    return buildPath(
-      [start.x, start.y],
-      [start.x, (start.y + end.y) / 2],
-      [end.x, (start.y + end.y) / 2],
-      [end.x, end.y],
-    )
-  }
-  if (startDir === "left" && endDir === "right") {
-    return buildPath(
-      [start.x, start.y],
-      [(start.x + end.x) / 2, start.y],
-      [(start.x + end.x) / 2, end.y],
-      [end.x, end.y],
-    )
-  }
-  if (startDir === "right" && endDir === "left") {
-    return buildPath(
-      [start.x, start.y],
-      [(start.x + end.x) / 2, start.y],
-      [(start.x + end.x) / 2, end.y],
-      [end.x, end.y],
-    )
-  }
-}
-
-const calcDirPos = (pos: Pos, dir: "top" | "bottom" | "left" | "right" | "center") => {
-  switch (dir) {
-    case "center":
-      return { x: pos.x + SIZE.WIDTH / 2, y: pos.y + SIZE.HEIGHT / 2 }
-    case "top":
-      return { x: pos.x + SIZE.WIDTH / 2, y: pos.y - HANDLE_DISTANCE }
-    case "bottom":
-      return { x: pos.x + SIZE.WIDTH / 2, y: pos.y + SIZE.HEIGHT + HANDLE_DISTANCE }
-    case "left":
-      return { x: pos.x - HANDLE_DISTANCE, y: pos.y + SIZE.HEIGHT / 2 }
-    case "right":
-      return { x: pos.x + SIZE.WIDTH + HANDLE_DISTANCE, y: pos.y + SIZE.HEIGHT / 2 }
-  }
-}
-
-const initNodes = [
-  {
-    id: "1",
-    label: "冬でも売れるアイスクリーム",
-  },
-  {
-    id: "2",
-    label: "熱い飲み物をかけてたべる",
-  },
-  {
-    id: "3",
-    label: "苦い飲み物",
-  },
-  {
-    id: "4",
-    label: "コーヒー",
-  },
-  {
-    id: "5",
-    label: "青汁",
-  },
-  {
-    id: "6",
-    label: "日本茶",
-  },
-  {
-    id: "7",
-    label: "温かい場所で提供する",
-  },
-  {
-    id: "8",
-    label: "サウナ",
-  },
-  {
-    id: "9",
-    label: "温泉や銭湯の風呂上がり",
-  },
-  {
-    id: "10",
-    label: "冷たくないアイス",
-  },
-  {
-    id: "11",
-    label: "燃える氷的な？",
-  },
-]
-type Pos = { x: number; y: number }
-const initNodePos: Record<string, Pos> = {
-  "1": { x: 0, y: 0 },
-  "2": { x: 0, y: 0 },
-  "3": { x: 0, y: 0 },
-  "4": { x: 0, y: 0 },
-  "5": { x: 0, y: 0 },
-  "6": { x: 0, y: 0 },
-  "7": { x: 0, y: 0 },
-  "8": { x: 0, y: 0 },
-  "9": { x: 0, y: 0 },
-  "10": { x: 0, y: 0 },
-  "11": { x: 0, y: 0 },
-}
-
-type Edge = {
-  from: {
-    id: string
-    handle: "right" | "left" | "top" | "bottom"
-  }
-  to: {
-    id: string
-    handle: "right" | "left" | "top" | "bottom"
-  }
-}
-
-const initEdges: Edge[] = [
-  {
-    from: {
-      id: "1",
-      handle: "right",
-    },
-    to: {
-      id: "2",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "2",
-      handle: "right",
-    },
-    to: {
-      id: "3",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "4",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "5",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "3",
-      handle: "right",
-    },
-    to: {
-      id: "6",
-      handle: "left",
-    },
-  },
-  {
-    from: {
-      id: "1",
-      handle: "left",
-    },
-    to: {
-      id: "7",
-      handle: "right",
-    },
-  },
-  {
-    from: {
-      id: "7",
-      handle: "bottom",
-    },
-    to: {
-      id: "8",
-      handle: "top",
-    },
-  },
-  {
-    from: { id: "7", handle: "bottom" },
-    to: { id: "9", handle: "top" },
-  },
-  {
-    from: { id: "1", handle: "left" },
-    to: { id: "10", handle: "right" },
-  },
-  {
-    from: { id: "10", handle: "bottom" },
-    to: { id: "11", handle: "top" },
-  },
-]
-
-type CanvasPageProps = {
-  params: {
-    roomId: string
-  }
-}
+import { useAddNewNode } from "@/lib/tree"
+import {
+  CanvasPageProps,
+  initNodes,
+  initEdges,
+  initNodePos,
+  Pos,
+  addPos,
+  invertPos,
+  SIZE,
+  calcDirPos,
+  getPath,
+  subPos,
+  ARROW_STEP,
+} from "./page"
 
 export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
   const [dummyInput, setDummyInput] = useState("")
@@ -404,7 +172,7 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
 
       recentlyCreatedNodeId.current = newId
     },
-    [nodePos],
+    [addNewNode, nodePos],
   )
 
   const handleClickNewNode = useCallback(
@@ -414,8 +182,6 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
     },
     [addChild, addNewNode],
   )
-
-  const updateNodeText = useUpdateNodeText()
 
   const updateNode = useCallback((id: string, label: string) => {
     setNodes((prev) => {
@@ -428,47 +194,23 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
     })
   }, [])
 
-  const handleUpdateNode = useCallback(
-    (id: string, label: string) => {
-      updateNode(id, label)
-      updateNodeText(id, label)
-    },
-    [updateNode, updateNodeText],
-  )
-
-  useSubscribeTreeDiff(
-    useCallback(
-      (data) => {
-        if (data.type === "add") {
-          if (nodes.find((node) => node.id === data.newNodeId)) return
-          addChild(data.newNodeId, data.parentNodeId)
-        } else {
-          updateNode(data.nodeId, data.text)
-        }
-      },
-      [addChild, nodes, updateNode],
-    ),
-  )
-
   const [comments, setComments] = useState<
     { id: string; text: string; date: Date; isMine: boolean; user: string }[]
   >([])
 
   const sendMessage = useSendMessage()
-  useSubscribeChat(
-    useCallback((data) => {
-      setComments((prev) => [
-        {
-          id: data.id,
-          user: data.user,
-          text: data.text,
-          date: new Date(),
-          isMine: true,
-        },
-        ...prev,
-      ])
-    }, []),
-  )
+  useSubscribeChat((data) => {
+    setComments((prev) => [
+      {
+        id: data.id,
+        user: data.user,
+        text: data.text,
+        date: new Date(),
+        isMine: true,
+      },
+      ...prev,
+    ])
+  })
 
   return (
     <div
@@ -612,7 +354,7 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
                   ...(focusedPostit === id ? { "data-focus": true } : undefined),
                 }}
                 onDoubleClick={() => {
-                  handleClickNewNode(id)
+                  addChild(id)
                 }}
               >
                 <div
@@ -621,18 +363,26 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
                     focusedNodeId === id && "ring-4 ring-orange-400 ring-offset-4",
                   )}
                 >
-                  <Textarea id={id} label={label} handleUpdateNode={handleUpdateNode} />
+                  <TextareaAutosize
+                    id={`textarea_${id}`}
+                    placeholder="新しいノード"
+                    value={label}
+                    onChange={(e) => updateNode(id, e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="max-w-full resize-none rounded bg-transparent py-2 text-center text-black placeholder:text-black/40 hover:bg-white/10 focus:outline-none"
+                    maxRows={4}
+                  />
                   {/* <div className="group/bottom absolute inset-x-0 bottom-0 h-[48px]">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditableNodeId(id)
-                      }}
-                      className="absolute inset-x-0 bottom-0 grid h-[48px] translate-y-full place-items-center border-t border-orange-500/50 bg-white opacity-0 transition group-hover/bottom:translate-y-0 group-hover/bottom:opacity-100"
-                    >
-                      <HiPencil />
-                    </button>
-                  </div> */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditableNodeId(id)
+                            }}
+                            className="absolute inset-x-0 bottom-0 grid h-[48px] translate-y-full place-items-center border-t border-orange-500/50 bg-white opacity-0 transition group-hover/bottom:translate-y-0 group-hover/bottom:opacity-100"
+                          >
+                            <HiPencil />
+                          </button>
+                        </div> */}
                 </div>
                 {/* Connectors */}
                 <>
@@ -693,33 +443,5 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
         )}
       </div>
     </div>
-  )
-}
-function Textarea({
-  id,
-  label,
-  handleUpdateNode,
-}: {
-  id: string
-  label: string
-  handleUpdateNode: (id: string, label: string) => void
-}) {
-  const [tmp, setTmp] = useState(label)
-
-  useEffect(() => {
-    setTmp(label)
-  }, [label])
-
-  return (
-    <TextareaAutosize
-      id={`textarea_${id}`}
-      placeholder="新しいノード"
-      value={tmp}
-      onChange={(e) => setTmp(e.target.value)}
-      onBlur={() => handleUpdateNode(id, tmp)}
-      onClick={(e) => e.stopPropagation()}
-      className="max-w-full resize-none rounded bg-transparent py-2 text-center text-black placeholder:text-black/40 hover:bg-white/10 focus:outline-none"
-      maxRows={4}
-    />
   )
 }
