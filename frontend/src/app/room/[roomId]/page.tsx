@@ -524,7 +524,7 @@ export default function CanvasPage({
         {theme}
       </div>
       {/* COMMENTS */}
-      <div className="absolute right-4 top-4 z-10 flex max-h-screen flex-col items-end gap-2 overflow-y-hidden">
+      <div className="absolute right-4 top-4 z-10 flex max-h-screen flex-col items-end gap-2">
         <div className="flex w-[400px] items-center gap-4 rounded-full border-2 border-white bg-white/60 px-4 py-3 text-sm font-bold text-slate-600 shadow backdrop-blur">
           {/* <input type="text" value={dummyInput} onChange={(e) => setDummyInput(e.target.value)} />
           <button
@@ -665,7 +665,7 @@ export default function CanvasPage({
               >
                 <div
                   className={clsx(
-                    "relative grid h-[160px] w-[160px] transform place-items-center overflow-hidden rounded-full bg-orange-400 p-4 font-bold text-black shadow hover:cursor-pointer group-hover/drag:scale-105 group-hover/drag:shadow-2xl",
+                    "relative grid h-[160px] w-[160px] transform place-items-center rounded-full bg-orange-400 p-4 font-bold text-black shadow hover:cursor-pointer group-hover/drag:scale-105 group-hover/drag:shadow-2xl",
                     focusedNodeId === id && "ring-4 ring-orange-400 ring-offset-4",
                   )}
                   style={{
@@ -686,11 +686,19 @@ export default function CanvasPage({
                       <HiPencil />
                     </button>
                   </div> */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                    }}
+                    className="absolute bottom-0 right-0 grid h-12 w-12 place-items-center rounded-full border-2 border-white bg-gradient-to-tr from-pink-600 to-amber-500 text-white shadow-lg transition hover:scale-110"
+                  >
+                    AI
+                  </button>
                 </div>
                 {/* Connectors */}
-                <>
+                {/* <>
                   <button className="absolute -right-12 top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-orange-400 opacity-0 shadow group-hover/postit:opacity-100 group-data-[focus=true]/postit:opacity-100" />
-                </>
+                </> */}
               </div>
             </Draggable>
           )
