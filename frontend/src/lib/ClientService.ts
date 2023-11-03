@@ -14,6 +14,10 @@ export type TreeDiff =
       nodeId: string
       text: string
     }
+  | {
+      type: "add_ai"
+      nodeId: string
+    }
 
 export class ClientService {
   socket: Socket
@@ -86,10 +90,15 @@ export class ClientService {
             new_node_id: diff.newNodeId,
             user_id: this.userId,
           }
-        : {
+        : diff.type === "update"
+        ? {
             type: "update",
             node_id: diff.nodeId,
             text: diff.text,
+          }
+        : {
+            type: "add_ai",
+            node_id: diff.nodeId,
           },
     )
   }

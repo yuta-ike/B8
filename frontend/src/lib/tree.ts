@@ -38,6 +38,21 @@ export const useUpdateNodeText = (userId: string) => {
   return addNewNode
 }
 
+export const useAddAi = () => {
+  const [clientService] = useState(() => new ClientService())
+  const addNewNode = useCallback(
+    (nodeId: string) => {
+      clientService.sendTreeDiff({
+        type: "add_ai",
+        nodeId,
+      })
+    },
+    [clientService],
+  )
+
+  return addNewNode
+}
+
 export const useSubscribeTreeDiff = (callback: (data: TreeDiff) => void) => {
   useEffect(() => {
     const unsubscribe = clientService.setResponseCallback((data) => {
