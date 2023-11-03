@@ -1,19 +1,32 @@
-import { useCallback, useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 
-import clientService from "./ClientService"
+import { ClientService } from "./ClientService"
 import { genId } from "./genId"
 
-export const useSendMessage = () => {
-  const sendMessage = useCallback((text: string) => {
-    const id = genId()
-    clientService.sendMessage(id, text)
-  }, [])
+export const useSendMessage = (userId: string) => {
+  const [clientService] = useState(() => new ClientService(userId))
+  const sendMessage = useCallback(
+    (text: string) => {
+      const id = genId()
+      clientService.sendMessage(id, text)
+    },
+    [clientService],
+  )
   return sendMessage
 }
 
 export const useSubscribeChat = (
-  callback: (data: { id: string; text: string; user: string }) => void,
+  userId: string,
+  callback: (data: {
+    id: string
+    text: string
+    user: string
+    username: string
+    color: string
+  }) => void,
 ) => {
+  const [clientService] = useState(() => new ClientService(userId))
+
   useEffect(() => {
     const unsubscribe = clientService.setSayCallback((data) => {
       callback(data)
@@ -21,5 +34,5 @@ export const useSubscribeChat = (
     return () => {
       unsubscribe()
     }
-  }, [callback])
+  }, [callback, clientService])
 }

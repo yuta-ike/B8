@@ -1,4 +1,5 @@
 from typing import Literal, Union
+from uuid import uuid4
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -38,6 +39,7 @@ class TreeDiffAdd:
     type: Literal["add"]
     parent_node_id: str
     new_node_id: str
+    user_id: str
 
 
 @dataclass
@@ -49,10 +51,18 @@ class TreeDiffUpdate:
 
 TreeDiff = Union[TreeDiffAdd, TreeDiffUpdate]
 
-
-user_dict = {}
 room_dict: dict[str, RoomInfo] = {}
 conn = logic.initialize()
+
+
+@dataclass
+class User:
+    id: str
+    username: str
+    color: str
+
+
+user_dict: dict[str, User] = {}
 
 
 def agentloop(conn):
@@ -128,6 +138,24 @@ def get_room_info(room_id: str):
     return jsonify({"room_id": room_id, "theme": room_info.theme})
 
 
+@app.route("/user/<user_id>")
+def get_user(user_id: str):
+    user = user_dict[user_id]
+    if user is None:
+        return jsonify({"error": "User not found"}), 404
+    return {"user_id": user.id, "username": user.username, "color": user.color}
+
+
+@socketio.on("create_user")
+def create_user(json):
+    user_id = str(uuid4())
+    username = json["username"]
+    color = json["color"]
+    user_dict[user_id] = User(id=user_id, username=username, color=color)
+
+    return {"user_id": user_id, "username": username, "color": color}
+
+
 @socketio.on("say")
 def add_sentece(json):
     logger.info(json)
@@ -136,7 +164,24 @@ def add_sentece(json):
     except KeyError:
         logger.error(f"KeyError: {json}")
         return
-    socketio.emit("say", {"id": chat_id, "text": text, "user": user})
+
+    logger.info(user_dict)
+    username = user_dict[user].username
+    color = user_dict[user].color
+    logger.info(user_dict[user])
+
+    socketio.emit(
+        "say",
+        {
+            "id": chat_id,
+            "text": text,
+            "user": user,
+            "username": username,
+            "color": color,
+        },
+    )
+    # socketio.emit("update_tree", {"text": text, "user": user})
+    # conn.send((text, user))
     conn.send(("say", text, user))
 
 
@@ -147,15 +192,18 @@ def send_tree_diff(json):
     if diff_type == "add":
         parent_node_id = json.get("parent_node_id", None)
         new_node_id = json.get("new_node_id", None)
+        user_id = json.get("user_id", None)
         if parent_node_id is None or new_node_id is None:
             return jsonify({"error": "parent_node_id or new_node_id is not set"})
         conn.send(("add", parent_node_id, new_node_id))
+        color = user_dict[user_id].color
         socketio.emit(
             "update_tree",
             {
                 "type": "add",
                 "parent_node_id": parent_node_id,
                 "new_node_id": new_node_id,
+                "color": color,
             },
         )
     elif diff_type == "update":
@@ -197,4 +245,4 @@ def text_update_request(json):
 
 if __name__ == "__main__":
     # 本番環境ではeventletやgeventを使うらしいが簡単のためデフォルトの開発用サーバーを使う
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=True, host="0.0.0.0")

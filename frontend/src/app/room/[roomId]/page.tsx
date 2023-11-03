@@ -14,9 +14,10 @@ import clsx from "clsx"
 import { throttle } from "throttle-debounce"
 import { flushSync } from "react-dom"
 
-import clientService from "@/lib/ClientService"
+import { ClientService } from "@/lib/ClientService"
 import { useSendMessage, useSubscribeChat } from "@/lib/chat"
 import { useAddNewNode, useSubscribeTreeDiff, useUpdateNodeText } from "@/lib/tree"
+import { COLORS } from "@/lib/color"
 
 const SIZE = {
   WIDTH: 160,
@@ -266,9 +267,16 @@ type CanvasPageProps = {
   params: {
     roomId: string
   }
+  searchParams: {
+    user_id: string
+  }
 }
 
-export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
+export default function CanvasPage({
+  params: { roomId },
+  searchParams: { user_id: userId },
+}: CanvasPageProps) {
+  const [clientService] = useState(() => new ClientService(userId))
   const [dummyInput, setDummyInput] = useState("")
 
   const [theme, setTheme] = useState("")
@@ -291,14 +299,13 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
       const { info } = await clientService.getRoomInfo(roomId)
       setTheme(info.theme)
     })()
-  }, [roomId])
+  }, [clientService, roomId])
 
   useEffect(
     () => {
       const listener = throttle(0, (e: WheelEvent) => {
         if (e.ctrlKey || e.metaKey) {
           setZoom(function (prev) {
-            console.log(prev - e.deltaY / 300)
             return prev - e.deltaY / 300
           })
           e.preventDefault()
@@ -385,11 +392,11 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
     }
   }, [nodes.length, edges.length, nodes, edges, focusTo])
 
-  const addNewNode = useAddNewNode()
+  const addNewNode = useAddNewNode(userId)
 
   const addChild = useCallback(
-    (newId: string, nodeId: string) => {
-      setNodes((prev) => [...prev, { id: newId, label: "" }])
+    (newId: string, nodeId: string, color: string) => {
+      setNodes((prev) => [...prev, { id: newId, label: "", color }])
       setEdges((prev) => [
         ...prev,
         {
@@ -413,14 +420,17 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
   )
 
   const handleClickNewNode = useCallback(
-    (parentId: string) => {
-      const newId = addNewNode(parentId)
-      addChild(newId, parentId)
+    async (parentId: string) => {
+      const user = await clientService.getUser()
+      console.log("handleClickNewNode ================")
+      console.log(user)
+      const newId = addNewNode(parentId, user!.color)
+      addChild(newId, parentId, user!.color)
     },
-    [addChild, addNewNode],
+    [addChild, addNewNode, clientService],
   )
 
-  const updateNodeText = useUpdateNodeText()
+  const updateNodeText = useUpdateNodeText(userId)
 
   const updateNode = useCallback((id: string, label: string) => {
     setNodes((prev) => {
@@ -446,7 +456,7 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
       (data) => {
         if (data.type === "add") {
           if (nodes.find((node) => node.id === data.newNodeId)) return
-          addChild(data.newNodeId, data.parentNodeId)
+          addChild(data.newNodeId, data.parentNodeId, data.color)
         } else {
           updateNode(data.nodeId, data.text)
         }
@@ -456,16 +466,27 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
   )
 
   const [comments, setComments] = useState<
-    { id: string; text: string; date: Date; isMine: boolean; user: string }[]
+    {
+      id: string
+      text: string
+      date: Date
+      isMine: boolean
+      user: string
+      username: string
+      color: string
+    }[]
   >([])
 
-  const sendMessage = useSendMessage()
+  const sendMessage = useSendMessage(userId)
   useSubscribeChat(
+    userId,
     useCallback((data) => {
       setComments((prev) => [
         {
           id: data.id,
           user: data.user,
+          username: data.username,
+          color: COLORS.find(({ id }) => id === data.color)?.color ?? "white",
           text: data.text,
           date: new Date(),
           isMine: true,
@@ -506,34 +527,42 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
           </div>
         </div>
         <hr className="my-2 w-full" />
-        {comments.map((comment, i) => (
-          <div
-            key={comment.id}
-            className="relative max-w-[400px] rounded-xl border-2 border-white bg-white/60 px-2 py-2 pr-4 text-sm font-bold text-slate-600 shadow backdrop-blur"
-            style={{
-              width: i === 0 ? 400 : "max-content",
-            }}
-          >
-            <div className="flex w-full items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <div
-                  className={clsx(
-                    "grid h-5 w-5 shrink-0 place-items-center rounded-full bg-purple-400 text-xs font-bold text-white",
-                    comment.isMine && "ring-2 ring-blue-500 ring-offset-2",
-                  )}
-                >
-                  {comment.user[0]}
-                </div>
+        {comments.map((comment, i) => {
+          const isMine = comment.user === userId
+          return (
+            <div
+              key={comment.id}
+              className="relative max-w-[400px] rounded-xl border-2 border-white bg-white/60 px-2 py-2 pr-4 text-sm font-bold text-slate-600 shadow backdrop-blur"
+              style={{
+                width: i === 0 ? 400 : "max-content",
+              }}
+            >
+              <div className="flex w-full items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  {
+                    <div
+                      className={clsx(
+                        "grid h-5 w-5 shrink-0 place-items-center rounded-full text-xs font-bold text-white",
+                        isMine && "ring-2 ring-blue-500 ring-offset-2",
+                      )}
+                      style={{
+                        background: comment.color,
+                      }}
+                    >
+                      {comment.username[0]}
+                    </div>
+                  }
 
-                <div className="flex flex-col">
-                  <div>{comment.text}</div>
-                  {/* <div className="text-xs font-normal">yuta-ike</div> */}
+                  <div className="flex flex-col">
+                    <div>{comment.text}</div>
+                    {/* <div className="text-xs font-normal">yuta-ike</div> */}
+                  </div>
                 </div>
+                {/* <div className="text-xs text-slate-600/50">{format(new Date(), "HH:mm")}</div> */}
               </div>
-              {/* <div className="text-xs text-slate-600/50">{format(new Date(), "HH:mm")}</div> */}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
       {/* MINDMAP */}
       <div
@@ -587,9 +616,7 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
             </svg>
           )
         })}
-        {nodes.map(({ id, label }) => {
-          const isEditable = ediableNodeId === id
-          console.log(isEditable)
+        {nodes.map(({ id, label, color }) => {
           return (
             <Draggable
               key={id}
@@ -625,6 +652,11 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
                     "relative grid h-[160px] w-[160px] transform place-items-center overflow-hidden rounded-full bg-orange-400 p-4 font-bold text-black shadow hover:cursor-pointer group-hover/drag:scale-105 group-hover/drag:shadow-2xl",
                     focusedNodeId === id && "ring-4 ring-orange-400 ring-offset-4",
                   )}
+                  style={{
+                    background: COLORS.find(({ id }) => id === color)?.color ?? "white",
+                    // @ts-ignore
+                    "--tw-ring-color": COLORS.find(({ id }) => id === color)?.color ?? "white",
+                  }}
                 >
                   <Textarea id={id} label={label} handleUpdateNode={handleUpdateNode} />
                   {/* <div className="group/bottom absolute inset-x-0 bottom-0 h-[48px]">
