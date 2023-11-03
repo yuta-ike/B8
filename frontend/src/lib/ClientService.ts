@@ -1,5 +1,4 @@
 import { Socket, io } from "socket.io-client"
-import { v4 as uuidv4 } from "uuid"
 
 const BACKEND = "http://127.0.0.1:5000"
 
@@ -8,6 +7,7 @@ export type TreeDiff =
       type: "add"
       parentNodeId: string
       newNodeId: string
+      color: string
     }
   | {
       type: "update"
@@ -15,19 +15,55 @@ export type TreeDiff =
       text: string
     }
 
-class ClientService {
+export class ClientService {
   socket: Socket
-  username: string = uuidv4()
+  // username: string = uuidv4()
   callbackFlg: boolean = false
   sayCallbackFlg: boolean = false
+  userId?: string
+  user: {
+    user_id: string
+    username: string
+    color: string
+  } | null = null
 
-  constructor() {
+  constructor(userId?: string) {
     const socket = io(BACKEND)
     this.socket = socket
+    this.userId = userId
+
+    this.getUser(userId)
   }
 
-  public sendMessage(id: string, text: string) {
-    this.socket.emit("say", { id, user: this.username, text })
+  public async createUser(username: string, color: string) {
+    return new Promise<string>((resolve) =>
+      this.socket.emit("create_user", { username, color }, (data: { user_id: string }) =>
+        resolve(data.user_id),
+      ),
+    )
+  }
+
+  public async getUser(userId?: string) {
+    if (this.user != null) {
+      return this.user
+    }
+    if (userId == null) {
+      return null
+    }
+    const res = await fetch(`${BACKEND}/user/${this.userId}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    const data = await res.json()
+    this.user = data
+    return data as { user_id: string; username: string; color: string }
+  }
+
+  public async sendMessage(id: string, text: string) {
+    const user = await this.getUser()
+    this.socket.emit("say", { id, user: user?.user_id, color: user?.color, text })
   }
 
   public setSayCallback(callback: (data: any) => void) {
@@ -40,7 +76,7 @@ class ClientService {
     return () => this.socket.off("say")
   }
 
-  public sendTreeDiff(diff: TreeDiff) {
+  public async sendTreeDiff(diff: TreeDiff) {
     this.socket.emit(
       "tree_diff",
       diff.type === "add"
@@ -48,6 +84,7 @@ class ClientService {
             type: "add",
             parent_node_id: diff.parentNodeId,
             new_node_id: diff.newNodeId,
+            user_id: this.userId,
           }
         : {
             type: "update",
@@ -61,12 +98,12 @@ class ClientService {
     // treeのdiffがサーバーから送られてきたときに走るコールバックを登録する
 
     this.socket.on("update_tree", (data: any) => {
-      console.log(data)
       if (data.type === "add") {
         callback({
           type: "add",
           parentNodeId: data.parent_node_id,
           newNodeId: data.new_node_id,
+          color: data.color,
         })
       } else {
         callback({
@@ -80,9 +117,9 @@ class ClientService {
     return () => this.socket.off("update_tree")
   }
 
-  public setUsername(username: string) {
-    this.username = username
-  }
+  // public setUsername(username: string) {
+  //   this.username = username
+  // }
 
   public async createRoom(theme: string) {
     const resp = await fetch(`${BACKEND}/room/new`, {

@@ -7,18 +7,21 @@ import { HiCheck } from "react-icons/hi2"
 import clientService from "@/lib/ClientService"
 import { COLORS } from "@/lib/color"
 
-export default function Home() {
+type HomeProps = {
+  params: {
+    roomId: string
+  }
+}
+
+export default function Home({ params: { roomId } }: HomeProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [selectedColor, setSelectedColor] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    // @ts-expect-error
-    const theme = e.target["theme"].value
     try {
       setIsLoading(true)
-      const { roomId } = await clientService.createRoom(theme)
       // @ts-expect-error
       const userId = await clientService.createUser(e.target["username"].value, selectedColor)
       router.push(`/room/${roomId}?user_id=${userId}`)
@@ -43,19 +46,6 @@ export default function Home() {
             background: COLORS.find(({ id }) => id === selectedColor)?.color ?? "white",
           }}
         >
-          <div>
-            <label className="mb-2 block text-sm font-bold text-slate-800" htmlFor="theme">
-              テーマ
-            </label>
-            <input
-              className="w-full appearance-none rounded border border-slate-200 bg-white/50 px-3 py-2 leading-tight text-slate-800 placeholder:text-slate-600/80 focus:outline-none"
-              id="theme"
-              name="theme"
-              required
-              type="text"
-              placeholder="楽"
-            />
-          </div>
           <div>
             <label className="mb-2 block text-sm font-bold  text-slate-800" htmlFor="username">
               ユーザー名
