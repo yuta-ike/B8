@@ -8,6 +8,7 @@ import openai
 import numpy as np
 from anytree import Node
 from anytree.search import find, findall
+import threading
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,9 @@ with open("prompt/extend_idea_system_prompt.txt") as f:
     extend_idea_system_prompt = f.read()
 with open("prompt/extend_idea_prompt.txt") as f:
     extend_idea_prompt = f.read()
+
+global_dict = {}
+
 
 class Secretary:
     def __init__(self) -> None:
@@ -47,30 +51,33 @@ class Secretary:
 
 
 class TreeManager:
-    def __init__(self, EMBEDDING_MODEL: str = "text-embedding-ada-002", theme: str = "楽") -> None:
+    def __init__(
+        self, EMBEDDING_MODEL: str = "text-embedding-ada-002", theme: str = "楽"
+    ) -> None:
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
         self.theme = theme
         self.root_node = Node(theme, embedding=self.sentence_to_embedding(theme))
         self.idea_candidates_dict = defaultdict(list)
-    
+
     def extract_ideas(self, sentence: str) -> list[str]:
         idea_list = []
         response = openai.ChatCompletion.create(
             model=MODEL_NAME,
             messages=[
-                {'role': 'system', 'content': extract_idea_system_prompt.format(self.theme)},
                 {
-                    'role': 'user',
-                    'content': extract_idea_prompt.format(
-                        self.theme,
-                        self.theme,
-                        sentence
-                    )
-                }
+                    "role": "system",
+                    "content": extract_idea_system_prompt.format(self.theme),
+                },
+                {
+                    "role": "user",
+                    "content": extract_idea_prompt.format(
+                        self.theme, self.theme, sentence
+                    ),
+                },
             ],
             temperature=TEMPERATURE,
         )
-        res = response['choices'][0]['message']['content']
+        res = response["choices"][0]["message"]["content"]
         logger.info(res)
 
         if "アイデアなし" in res:
@@ -79,16 +86,14 @@ class TreeManager:
         for idea in res.split("\n"):
             if ("根拠" in idea) or (len(idea) == 0):
                 continue
-            idea_list.append(
-                idea.replace("「", "").replace("」", "").split("アイデア：")[1]
-            )
+            idea_list.append(idea.replace("「", "").replace("」", "").split("アイデア：")[1])
         return idea_list
-    
+
     def sentence_to_embedding(self, idea: str) -> list[float]:
         res = openai.Embedding.create(input=[idea], model=self.EMBEDDING_MODEL)
         embedding = res["data"][0]["embedding"]
         return embedding
-    
+
     def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> np.ndarray:
         # openai.embeddings_utils.cosine_similarity()
         return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
@@ -118,11 +123,13 @@ class TreeManager:
             Node(idea, embedding=embedding, parent=parent_node)
             idea_parent_node_combination.append((idea, parent_node.name))
         return idea_parent_node_combination
-    
-    def update_candidate_ideas(self, idea_parent_node_combination: list[tuple[str, str]]):
+
+    def update_candidate_ideas(
+        self, idea_parent_node_combination: list[tuple[str, str]]
+    ):
         for idea, _ in idea_parent_node_combination:
             node = find(self.root_node, filter_=lambda node: node.name == idea)
-            related_ideas = []            
+            related_ideas = []
             while node.parent:
                 related_ideas.append(node.parent.name)
                 node = node.parent
@@ -131,18 +138,40 @@ class TreeManager:
             response = openai.ChatCompletion.create(
                 model=MODEL_NAME,
                 messages=[
-                    {'role': 'system', 'content': extend_idea_system_prompt.format(self.theme)},
-                    {'role': 'user', 'content': extend_idea_prompt.format(idea, "\n".join(related_ideas))}
+                    {
+                        "role": "system",
+                        "content": extend_idea_system_prompt.format(self.theme),
+                    },
+                    {
+                        "role": "user",
+                        "content": extend_idea_prompt.format(
+                            idea, "\n".join(related_ideas)
+                        ),
+                    },
                 ],
                 temperature=TEMPERATURE,
             )
-            res = response['choices'][0]['message']['content']
+            res = response["choices"][0]["message"]["content"]
             logger.info(f"idea: {idea}")
             logger.info(f"res: {res}")
 
-            # 候補となるアイデアを格納 
+            # 候補となるアイデアを格納
             for extended_idea in res.split("\n"):
-                self.idea_candidates_dict[idea].append(extended_idea.replace("-", "").replace(" ", ""))
+                self.idea_candidates_dict[idea].append(
+                    extended_idea.replace("-", "").replace(" ", "")
+                )
+
+
+def timeout_function():
+    pass
+
+
+def reset_timer():
+    if "timer" in global_dict:
+        global_dict["timer"].cancel()
+
+    global_dict["timer"] = threading.Timer(30, timeout_function)
+    global_dict["timer"].start()
 
 
 def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAIを活用したプロダクトを作るハッカソン"):
@@ -156,6 +185,7 @@ def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAI�
             try:
                 text, speaker = conn.recv()
                 secretary.note(text, speaker)
+                reset_timer()
             except Exception:
                 break
 
