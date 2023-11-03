@@ -90,10 +90,15 @@ export class ClientService {
             new_node_id: diff.newNodeId,
             user_id: this.userId,
           }
-        : {
+        : diff.type === "update"
+        ? {
             type: "update",
             node_id: diff.nodeId,
             text: diff.text,
+          }
+        : {
+            type: "add_ai",
+            node_id: diff.nodeId,
           },
     )
   }
