@@ -97,7 +97,7 @@ def add_sentece(json):
         logger.error(f"KeyError: {json}")
         return
     socketio.emit("say", {"id": chat_id, "text": text, "user": user})
-    socketio.emit("update_tree", {"text": text, "user": user})
+    # socketio.emit("update_tree", {"text": text, "user": user})
     # conn.send((text, user))
 
 @socketio.on("tree_diff")
