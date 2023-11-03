@@ -6,30 +6,39 @@ import logic
 import logging
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+handler_format = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+stream_handler.setFormatter(handler_format)
+logger.addHandler(stream_handler)
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
+app.config["SECRET_KEY"] = "secret!"
 
-socketio = SocketIO(app, cors_allowed_origins='*')
+socketio = SocketIO(app, cors_allowed_origins="*")
 user_dict = {}
 
 conn = logic.initialize()
 
 
-@app.route('/')
+@app.route("/")
 def index():
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@socketio.on('add_sentence')
-def add_sentence_json(json):
+@socketio.on("say")
+def addpend_sentece(json):
     logger.info(json)
     try:
-        text, user = json['text'], json['user']
+        text, user = json["text"], json["user"]
     except KeyError:
-        logger.error(f'KeyError: {json}')
+        logger.error(f"KeyError: {json}")
         return
-    conn.send((text, user))
+    socketio.emit("update_tree", {"text": text, "user": user})
+    # conn.send((text, user))
 
 
 def send_tree_diff():
@@ -38,32 +47,32 @@ def send_tree_diff():
             diff = conn.recv()
         except Exception:
             continue
-        socketio.emit('update_tree', {'diff': diff})
+        socketio.emit("update_tree", {"diff": diff})
 
 
 # ユーザーが新しく接続すると実行
-@socketio.on('connect')
+@socketio.on("connect")
 def connect(auth):
-    print('connected')
-    emit('test', {'data': 'Connected'}, bloadcast=True)
+    logger.info("connected")
+    emit("test", {"data": "Connected"}, bloadcast=True)
 
 
 # ユーザーの接続が切断すると実行
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def disconnect():
     pass
 
 
 # テキストエリアが変更されたときに実行
-@socketio.on('text_update_request')
+@socketio.on("text_update_request")
 def text_update_request(json):
     global text
     text = json["text"]
     # 変更をリクエストした人以外に向けて送信する
     # 全員向けに送信すると入力の途中でテキストエリアが変更されて日本語入力がうまくできない
-    emit('text_update', {'text': text}, broadcast=True, include_self=False)
+    emit("text_update", {"text": text}, broadcast=True, include_self=False)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 本番環境ではeventletやgeventを使うらしいが簡単のためデフォルトの開発用サーバーを使う
     socketio.run(app, debug=True)
