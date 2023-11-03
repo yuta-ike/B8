@@ -500,14 +500,14 @@ export default function CanvasPage({ params: { roomId } }: CanvasPageProps) {
       {/* COMMENTS */}
       <div className="absolute right-4 top-4 z-10 flex max-h-screen flex-col items-end gap-2 overflow-y-hidden">
         <div className="flex w-[400px] items-center gap-4 rounded-full border-2 border-white bg-white/60 px-4 py-3 text-sm font-bold text-slate-600 shadow backdrop-blur">
-          <input type="text" value={dummyInput} onChange={(e) => setDummyInput(e.target.value)} />
+          {/* <input type="text" value={dummyInput} onChange={(e) => setDummyInput(e.target.value)} />
           <button
             onClick={() => {
               sendMessage(dummyInput)
             }}
           >
             送信
-          </button>
+          </button> */}
           <div className="grow">{tmpResult}</div>
           <button
             onClick={recording ? stopRecognition : startRecognition}
