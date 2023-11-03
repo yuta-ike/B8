@@ -94,6 +94,7 @@ class TreeManager:
         node.name = text
         embedding = self.sentence_to_embedding(text)
         node.embedding = embedding
+        self.update_candidate_ideas([(None, None, text)])
 
     def extract_ideas(self, sentence: str) -> list[str]:
         idea_list = []
