@@ -30,13 +30,14 @@ def index():
 
 
 @socketio.on("say")
-def addpend_sentece(json):
+def add_sentece(json):
     logger.info(json)
     try:
         text, user = json["text"], json["user"]
     except KeyError:
         logger.error(f"KeyError: {json}")
         return
+    socketio.emit("say", {"text": text, "user": user})
     socketio.emit("update_tree", {"text": text, "user": user})
     # conn.send((text, user))
 
