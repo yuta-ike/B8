@@ -105,6 +105,25 @@ def agentloop(conn):
                     "text": text,
                 },
             )
+        elif args == "add_ai":
+            parent_node_id, new_node_id, text = body
+            socketio.emit(
+                "update_tree",
+                {
+                    "type": "add",
+                    "parent_node_id": parent_node_id,
+                    "new_node_id": new_node_id,
+                },
+            )
+            time.sleep(1)
+            socketio.emit(
+                "update_tree",
+                {
+                    "type": "update",
+                    "node_id": new_node_id,
+                    "text": text,
+                },
+            )
 
 
 threading.Thread(target=agentloop, args=(conn,)).start()
@@ -223,8 +242,13 @@ def send_tree_diff(json):
                 "update_tree", {"type": "update", "node_id": node_id, "text": text}
             )
     elif diff_type == "add_ai":
+        logger.info("add_ai")
         node_id = json.get("node_id", None)
-        # TODO: AIの返答を取得する
+        if node_id is None:
+            return jsonify({"error": "node_id is not set"})
+        logger.info(f"add_ai {node_id}")
+        conn.send(("add_ai", node_id))
+
     else:
         return jsonify({"error": "Unknown diff type."})
 

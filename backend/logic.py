@@ -82,12 +82,26 @@ class TreeManager:
         parent_node = find(
             self.root_node, filter_=lambda node: node.id == parent_node_id
         )
-        new_idea = self.idea_candidates_dict[parent_node.name].pop()
+        try:
+            new_idea = self.idea_candidates_dict[parent_node.name].pop()
+        except Exception:
+            new_idea = ""
 
         Node(new_idea, id=new_node_id, parent=parent_node, embedding=None)
 
-        self.update_candidate_ideas([(parent_node_id, new_node_id, new_idea)])
         return new_idea
+
+    def add_ai(self, parent_node_id: str) -> str:
+        parent_node = find(
+            self.root_node, filter_=lambda node: node.id == parent_node_id
+        )
+        new_idea = self.idea_candidates_dict[parent_node.name].pop()
+
+        id = str(uuid.uuid4())
+        embedding = self.sentence_to_embedding(new_idea)
+        Node(new_idea, id=id, parent=parent_node, embedding=embedding)
+
+        return id, new_idea
 
     def update(self, node_id: str, text: str) -> None:
         node = find(self.root_node, filter_=lambda node: node.id == node_id)
@@ -181,10 +195,15 @@ class TreeManager:
             Node(idea, embedding=embedding, parent=parent, id=id)
         return idea_parent_node_combination
 
+    def cache(self, text):
+        self.update_candidate_ideas([(None, None, text)])
+
     def update_candidate_ideas(
         self, idea_parent_node_combination: list[tuple[str, str, str]]
     ):
         for _, _, idea in idea_parent_node_combination:
+            if idea == "":
+                continue
             node = find(self.root_node, filter_=lambda node: node.name == idea)
             related_ideas = []
             while node.parent:
@@ -245,7 +264,7 @@ def mainloop(conn, interval: int = 1, theme: str = "「楽」をテーマにAI�
             if args[0] == "add":
                 parent_node_id, new_node_id = args[1:]
                 text = tree_manager.add(parent_node_id, new_node_id)
-                conn.send(("update", (new_node_id, text)))
+                tree_manager.cache(text)
             elif args[0] == "update":
                 node_id, text = args[1:]
                 tree_manager.update(node_id, text)
@@ -254,6 +273,12 @@ def mainloop(conn, interval: int = 1, theme: str = "「楽」をテーマにAI�
                 text, speaker = args[1:]
                 secretary.note(text, speaker)
                 reset_timer()
+            elif args[0] == "add_ai":
+                parent_id = args[1]
+                logger.info(f"parant_id: {parent_id}")
+                new_node_id, text = tree_manager.add_ai(parent_id)
+                conn.send(("add_ai", (parent_id, new_node_id, text)))
+                tree_manager.cache(text)
             else:
                 raise Exception("invalid args")
         if not say_flg:
