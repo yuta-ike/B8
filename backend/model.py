@@ -1,16 +1,15 @@
-import openai
+import os
 import logging
+
+import openai
+
+
 logger = logging.getLogger(__name__)
-
-
-class LLMMock:
-    def extract_keywords(self, sentence: str) -> list[str]:
-        return ["apple", "banana", "orange"]
 
 
 MODEL_NAME = "gpt-3.5-turbo"
 TEMPERATURE = 0.0
-openai.api_key = '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'
+openai.api_key = os.environ.get("OPENAI_KEY")
 
 system_prompt = "あなたは、{}に関するブレインストーミング会議の書紀だ。"
 extract_idea_prompt = """# 指示
@@ -37,17 +36,20 @@ class GPTExtractor:
     def __init__(self, theme):
         self.theme = theme
 
-    def extract_keywords(self, sentence):
+    def extract_ideas(self, sentence: str) -> list[str]:
         idea_list = []
-        theme = self.theme
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model=MODEL_NAME,
             messages=[
-                {'role': 'system', 'content': system_prompt.format(theme)},
-                {'role': 'user', 'content': extract_idea_prompt.format(
-                    theme,
-                    theme,
-                    sentence)}
+                {'role': 'system', 'content': system_prompt.format(self.theme)},
+                {
+                    'role': 'user',
+                    'content': extract_idea_prompt.format(
+                        self.theme,
+                        self.theme,
+                        sentence
+                    )
+                }
             ],
             temperature=TEMPERATURE,
         )
@@ -56,10 +58,11 @@ class GPTExtractor:
 
         if "アイデアなし" in res:
             return []
+
         for idea in res.split("\n"):
             if ("根拠" in idea) or (len(idea) == 0):
                 continue
             idea_list.append(
                 idea.replace("「", "").replace("」", "").split("アイデア：")[1]
-                )
+            )
         return idea_list
