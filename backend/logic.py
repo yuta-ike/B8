@@ -12,6 +12,15 @@ import threading
 
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.DEBUG)
+handler_format = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+stream_handler.setFormatter(handler_format)
+logger.addHandler(stream_handler)
+
 MODEL_NAME = "gpt-3.5-turbo"
 TEMPERATURE = 0.0
 openai.api_key = os.environ.get("OPENAI_KEY")
