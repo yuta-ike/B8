@@ -4,9 +4,11 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from dataclasses import dataclass
 from enum import Enum, auto
-# import logic
+
+import logic
 
 import logging
+import threading
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -20,17 +22,16 @@ logger.addHandler(stream_handler)
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
-CORS(
-    app,
-    supports_credentials=True
-)
+CORS(app, supports_credentials=True)
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 
+
 @dataclass
 class RoomInfo:
-  room_id: str
-  theme: str
+    room_id: str
+    theme: str
+
 
 @dataclass
 class TreeDiffAdd:
@@ -38,38 +39,70 @@ class TreeDiffAdd:
     parent_node_id: str
     new_node_id: str
 
+
 @dataclass
 class TreeDiffUpdate:
     type: Literal["update"]
     node_id: str
     text: str
 
+
 TreeDiff = Union[TreeDiffAdd, TreeDiffUpdate]
 
 
 user_dict = {}
 room_dict: dict[str, RoomInfo] = {}
-# conn = logic.initialize()
+conn = logic.initialize()
 
+
+def agentloop(conn):
+    while True:
+        try:
+            add_list = conn.recv()
+            pass
+        except Exception:
+            continue
+        for node in add_list:
+            parent_node_id, new_node_id, text = node
+            socketio.emit(
+                "update_tree",
+                {
+                    "type": "add",
+                    "parent_node_id": parent_node_id,
+                    "new_node_id": new_node_id,
+                },
+            )
+            socketio.emit(
+                "update_tree",
+                {
+                    "type": "update",
+                    "node_id": new_node_id,
+                    "text": text,
+                },
+            )
+
+
+threading.Thread(target=agentloop, args=(conn,)).start()
 
 # HTTP Request
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
+
 @app.route("/health")
 def health():
-    return jsonify({
-      "message": "hello"
-    })
+    return jsonify({"message": "hello"})
+
 
 @app.route("/room/new", methods=["POST"])
 def create_room():
     room_id = "apple"
     logger.warning(request.json)
     if request.json is None:
-        return jsonify({ "error": "body is not provided" }), 500
+        return jsonify({"error": "body is not provided"}), 500
     theme = request.json["theme"]
     info = RoomInfo(room_id=room_id, theme=theme)
     room_dict[room_id] = info
@@ -81,12 +114,10 @@ def create_room():
 def get_room_info(room_id: str):
     room_info = room_dict.get(room_id, None)
     if room_info is None:
-        return jsonify({ "error": "Room not found" }), 404
-    
-    return jsonify({
-      "room_id": room_id,
-      "theme": room_info.theme
-    })
+        return jsonify({"error": "Room not found"}), 404
+
+    return jsonify({"room_id": room_id, "theme": room_info.theme})
+
 
 @socketio.on("say")
 def add_sentece(json):
@@ -100,6 +131,7 @@ def add_sentece(json):
     # socketio.emit("update_tree", {"text": text, "user": user})
     # conn.send((text, user))
 
+
 @socketio.on("tree_diff")
 def send_tree_diff(json):
     logger.info(json)
@@ -109,24 +141,27 @@ def send_tree_diff(json):
         new_node_id = json.get("new_node_id", None)
         if parent_node_id is None or new_node_id is None:
             return jsonify({"error": "parent_node_id or new_node_id is not set"})
-        socketio.emit("update_tree", {"type":"add", "parent_node_id":parent_node_id, "new_node_id":new_node_id})
+        conn.send(("add", parent_node_id, new_node_id))
+        socketio.emit(
+            "update_tree",
+            {
+                "type": "add",
+                "parent_node_id": parent_node_id,
+                "new_node_id": new_node_id,
+            },
+        )
     elif diff_type == "update":
         node_id = json.get("node_id", None)
         text = json.get("text", None)
         if node_id is None or text is None:
             return jsonify({"error": "node_id or text is not set"})
-        socketio.emit("update_tree", {"type":"update","node_id":node_id, "text":text})
+        conn.send(("update", node_id, text))
+        socketio.emit(
+            "update_tree", {"type": "update", "node_id": node_id, "text": text}
+        )
     else:
         return jsonify({"error": "Unknown diff type."})
-          
-          
-    # while True:
-    #     try:
-    #         # diff = conn.recv()
-    #         pass
-    #     except Exception:
-    #         continue
-    #     socketio.emit("update_tree", {"diff": diff})
+
 
 # ユーザーが新しく接続すると実行
 @socketio.on("connect")

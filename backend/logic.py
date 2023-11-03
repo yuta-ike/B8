@@ -9,6 +9,7 @@ import numpy as np
 from anytree import Node
 from anytree.search import find, findall
 import threading
+import uuid
 
 
 logger = logging.getLogger(__name__)
@@ -65,8 +66,22 @@ class TreeManager:
     ) -> None:
         self.EMBEDDING_MODEL = EMBEDDING_MODEL
         self.theme = theme
-        self.root_node = Node(theme, embedding=self.sentence_to_embedding(theme))
+        self.root_node = Node(
+            theme, embedding=self.sentence_to_embedding(theme), id="rootid"
+        )
         self.idea_candidates_dict = defaultdict(list)
+
+    def add(self, parent_node_id: str, new_node_id: str) -> None:
+        parent_node = find(
+            self.root_node, filter_=lambda node: node.id == parent_node_id
+        )
+        Node("", id=new_node_id, parent=parent_node, embedding=None)
+
+    def update(self, node_id: str, text: str) -> None:
+        node = find(self.root_node, filter_=lambda node: node.id == node_id)
+        node.name = text
+        embedding = self.sentence_to_embedding(text)
+        node.embedding = embedding
 
     def extract_ideas(self, sentence: str) -> list[str]:
         idea_list = []
@@ -109,7 +124,7 @@ class TreeManager:
 
     def add_ideas(
         self, idea_list: list[str], threshold: float = 0.9
-    ) -> list[tuple[str, str]]:
+    ) -> list[tuple[str, str, str]]:
         """
         会話から抽出されたアイデアを、類似度が最も大きいノードと連結する
         Args:
@@ -125,6 +140,8 @@ class TreeManager:
 
             # 類似度が最大のノードを探す
             for node in findall(self.root_node):
+                if node.embedding is None:
+                    continue
                 cosine_similarity = self.cosine_similarity(node.embedding, embedding)
                 if cosine_similarity > max_cosine_similarity:
                     max_cosine_similarity = cosine_similarity
@@ -134,14 +151,15 @@ class TreeManager:
 
             if max_cosine_similarity > threshold:
                 continue
-            Node(idea, embedding=embedding, parent=parent_node)
-            idea_parent_node_combination.append((idea, parent_node.name))
+            id = str(uuid.uuid4())
+            Node(idea, embedding=embedding, parent=parent_node, id=id)
+            idea_parent_node_combination.append((parent_node.id, id, idea))
         return idea_parent_node_combination
 
     def update_candidate_ideas(
-        self, idea_parent_node_combination: list[tuple[str, str]]
+        self, idea_parent_node_combination: list[tuple[str, str, str]]
     ):
-        for idea, _ in idea_parent_node_combination:
+        for idea, _, _ in idea_parent_node_combination:
             node = find(self.root_node, filter_=lambda node: node.name == idea)
             related_ideas = []
             while node.parent:
@@ -195,13 +213,28 @@ def mainloop(conn, interval: int = 10, theme: str = "「楽」をテーマにAI�
         time.sleep(interval)
 
         # queueが空になるまで読む
+        say_flg = False
         while True:
             try:
-                text, speaker = conn.recv()
-                secretary.note(text, speaker)
-                reset_timer()
+                args = conn.recv()
+                if args[0] == "add":
+                    parent_node_id, new_node_id = args[1:]
+                    tree_manager.add(parent_node_id, new_node_id)
+                elif args[0] == "update":
+                    node_id, text = args[1:]
+                    tree_manager.update(node_id, text)
+                elif args[0] == "say":
+                    say_flg = True
+                    text, speaker = args[1:]
+                    secretary.note(text, speaker)
+                    reset_timer()
+                else:
+                    raise Exception("invalid args")
             except Exception:
                 break
+
+        if not say_flg:
+            continue
 
         # 直近の会話を取得
         sentence = secretary.get_sentence()
