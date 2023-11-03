@@ -16,7 +16,7 @@ import { flushSync } from "react-dom"
 
 import { ClientService } from "@/lib/ClientService"
 import { useSendMessage, useSubscribeChat } from "@/lib/chat"
-import { useAddNewNode, useSubscribeTreeDiff, useUpdateNodeText } from "@/lib/tree"
+import { useAddAi, useAddNewNode, useSubscribeTreeDiff, useUpdateNodeText } from "@/lib/tree"
 import { useSpeechRecognition } from "@/lib/speech"
 import { COLORS } from "@/lib/color"
 
@@ -478,6 +478,8 @@ export default function CanvasPage({
     }[]
   >([])
 
+  const addAi = useAddAi()
+
   const sendMessage = useSendMessage(userId)
   useSubscribeChat(
     userId,
@@ -689,6 +691,7 @@ export default function CanvasPage({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
+                      addAi(id)
                     }}
                     className="absolute bottom-0 right-0 grid h-12 w-12 place-items-center rounded-full border-2 border-white bg-gradient-to-tr from-pink-600 to-amber-500 text-white shadow-lg transition hover:scale-110"
                   >

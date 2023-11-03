@@ -14,6 +14,10 @@ export type TreeDiff =
       nodeId: string
       text: string
     }
+  | {
+      type: "add_ai"
+      nodeId: string
+    }
 
 export class ClientService {
   socket: Socket
