@@ -1,7 +1,7 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 
-import logic
+# import logic
 
 import logging
 
@@ -20,8 +20,8 @@ app.config["SECRET_KEY"] = "secret!"
 
 socketio = SocketIO(app, cors_allowed_origins="*")
 user_dict = {}
-
-conn = logic.initialize()
+room_dict = {}
+# conn = logic.initialize()
 
 
 @app.route("/")
@@ -45,10 +45,33 @@ def add_sentece(json):
 def send_tree_diff():
     while True:
         try:
-            diff = conn.recv()
+            # diff = conn.recv()
+            pass
         except Exception:
             continue
         socketio.emit("update_tree", {"diff": diff})
+
+
+@app.route("/room/new", methods=["POST"])
+def create_room():
+    room_id = "apple"
+    logger.warning(request.json)
+    thema = request.json["thema"]
+    info = {"room_id": room_id, "thema": thema}
+    room_dict[room_id] = info
+    logger.info(f"create room: {info}")
+    return jsonify(info)
+
+
+# @app.route("/room/<room_id>")
+# def get_room_info(json):
+#     room_id = json["room_id"]
+#     room_info = room_dict.get(room_id, None)
+#     if not room_info:
+#         emit("room_info", {"user_dict": {}})
+#     emit(
+#         "room_info",
+#     )
 
 
 # ユーザーが新しく接続すると実行
